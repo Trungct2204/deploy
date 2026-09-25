@@ -1,4 +1,4 @@
-name: CI/CD - Build & Deploy hai-shop-fe
+name: CI/CD - Build & Deploy trung-shop-fe
 
 on:
   push:
