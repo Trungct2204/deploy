@@ -8,6 +8,7 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
 
@@ -24,6 +25,16 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Check Docker username
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        run: |
+          if [ -z "$DOCKER_USERNAME" ]; then
+            echo "DOCKER_USERNAME is EMPTY"
+            exit 1
+          fi
+          echo "DOCKER_USERNAME is set"
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
@@ -36,4 +47,5 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Trigger Render Deploy
+        if: success()
         run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
