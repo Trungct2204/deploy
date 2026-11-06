@@ -3,63 +3,63 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlserver"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model User {
   id           Int      @id @default(autoincrement())
-  name         String   @db.NVarChar(120)
-  email        String   @unique @db.NVarChar(190)
-  passwordHash String   @db.NVarChar(255)
-  phone        String?  @db.NVarChar(30)
-  address      String?  @db.NVarChar(500)
-  role         String   @default("customer") @db.NVarChar(20)
+  name         String   @db.VarChar(120)
+  email        String   @unique @db.VarChar(190)
+  passwordHash String   @db.VarChar(255)
+  phone        String?  @db.VarChar(30)
+  address      String?  @db.VarChar(500)
+  role         String   @default("customer") @db.VarChar(20)
   createdAt    DateTime @default(now())
   orders       Order[]
 }
 
 model Product {
   id          Int         @id @default(autoincrement())
-  name        String      @db.NVarChar(200)
-  category    String      @db.NVarChar(80)
-  brand       String      @db.NVarChar(100)
+  name        String      @db.VarChar(200)
+  category    String      @db.VarChar(80)
+  brand       String      @db.VarChar(100)
   price       Float
   oldPrice    Float       @default(0)
   rating      Float       @default(5)
   stock       Int         @default(0)
-  badge       String?     @db.NVarChar(50)
-  color       String?     @db.NVarChar(30)
-  image       String?     @db.NVarChar(1000)
-  emoji       String?     @db.NVarChar(20)
-  description String?     @db.NVarChar(Max)
+  badge       String?     @db.VarChar(50)
+  color       String?     @db.VarChar(30)
+  image       String?     @db.VarChar(1000)
+  emoji       String?     @db.VarChar(20)
+  description String?     @db.Text
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   orderItems  OrderItem[]
 }
 
 model Order {
-  id          Int         @id @default(autoincrement())
-  code        String      @unique @db.NVarChar(30)
-  userId      Int
-  customer    String      @db.NVarChar(120)
-  email       String      @db.NVarChar(190)
-  phone       String      @db.NVarChar(30)
-  address     String      @db.NVarChar(500)
-  payment     String      @db.NVarChar(30)
-  total       Float
-  status      String      @default("Chờ xác nhận") @db.NVarChar(40)
-  createdAt   DateTime    @default(now())
-  user        User        @relation(fields: [userId], references: [id])
-  items       OrderItem[]
+  id        Int         @id @default(autoincrement())
+  code      String      @unique @db.VarChar(30)
+  userId    Int
+  customer  String      @db.VarChar(120)
+  email     String      @db.VarChar(190)
+  phone     String      @db.VarChar(30)
+  address   String      @db.VarChar(500)
+  payment   String      @db.VarChar(30)
+  total     Float
+  status    String      @default("Chờ xác nhận") @db.VarChar(40)
+  createdAt DateTime    @default(now())
+  user      User        @relation(fields: [userId], references: [id])
+  items     OrderItem[]
 }
 
 model OrderItem {
   id        Int     @id @default(autoincrement())
   orderId   Int
   productId Int
-  name      String  @db.NVarChar(200)
-  image     String? @db.NVarChar(1000)
+  name      String  @db.VarChar(200)
+  image     String? @db.VarChar(1000)
   price     Float
   qty       Int
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
