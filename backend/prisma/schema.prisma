@@ -9,29 +9,29 @@ datasource db {
 
 model User {
   id           Int      @id @default(autoincrement())
-  name         String   @db.VarChar(120)
-  email        String   @unique @db.VarChar(190)
-  passwordHash String   @db.VarChar(255)
-  phone        String?  @db.VarChar(30)
-  address      String?  @db.VarChar(500)
-  role         String   @default("customer") @db.VarChar(20)
+  name         String  
+  email        String   @unique
+  passwordHash String  
+  phone        String? 
+  address      String? 
+  role         String   @default("customer")
   createdAt    DateTime @default(now())
   orders       Order[]
 }
 
 model Product {
   id          Int         @id @default(autoincrement())
-  name        String      @db.VarChar(200)
-  category    String      @db.VarChar(80)
-  brand       String      @db.VarChar(100)
+  name        String     
+  category    String     
+  brand       String     
   price       Float
   oldPrice    Float       @default(0)
   rating      Float       @default(5)
   stock       Int         @default(0)
-  badge       String?     @db.VarChar(50)
-  color       String?     @db.VarChar(30)
-  image       String?     @db.VarChar(1000)
-  emoji       String?     @db.VarChar(20)
+  badge       String?    
+  color       String?    
+  image       String?    
+  emoji       String?    
   description String?     @db.Text
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -39,27 +39,27 @@ model Product {
 }
 
 model Order {
-  id        Int         @id @default(autoincrement())
-  code      String      @unique @db.VarChar(30)
-  userId    Int
-  customer  String      @db.VarChar(120)
-  email     String      @db.VarChar(190)
-  phone     String      @db.VarChar(30)
-  address   String      @db.VarChar(500)
-  payment   String      @db.VarChar(30)
-  total     Float
-  status    String      @default("Chờ xác nhận") @db.VarChar(40)
-  createdAt DateTime    @default(now())
-  user      User        @relation(fields: [userId], references: [id])
-  items     OrderItem[]
+  id          Int         @id @default(autoincrement())
+  code        String      @unique
+  userId      Int
+  customer    String     
+  email       String     
+  phone       String     
+  address     String     
+  payment     String     
+  total       Float
+  status      String      @default("Chờ xác nhận")
+  createdAt   DateTime    @default(now())
+  user        User        @relation(fields: [userId], references: [id])
+  items       OrderItem[]
 }
 
 model OrderItem {
   id        Int     @id @default(autoincrement())
   orderId   Int
   productId Int
-  name      String  @db.VarChar(200)
-  image     String? @db.VarChar(1000)
+  name      String 
+  image     String?
   price     Float
   qty       Int
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
