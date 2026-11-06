@@ -8,7 +8,7 @@ const money = n => Number(n || 0).toLocaleString("vi-VN") + "₫";
 const emptyForm = { name: "", category: categories[1], brand: "", price: "", oldPrice: "", stock: "", rating: 4.5, image: "", emoji: "📦", badge: "", description: "" };
 
 export default function AdminProducts() {
-  const { products, addProduct, updateProduct, deleteProduct } = useApp();
+  const { products, addProduct, updateProduct, deleteProduct, notify } = useApp();
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState(null); // { mode: "add" | "edit", data }
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -20,15 +20,15 @@ export default function AdminProducts() {
   const openEdit = p => { setForm({ ...p }); setModal({ mode: "edit", id: p.id }); };
   const closeModal = () => setModal(null);
 
-  const submit = e => {
+  const submit = async e => {
     e.preventDefault();
     const price = Number(form.price) || 0;
     const oldPrice = Number(form.oldPrice) || 0;
     const payload = { ...form, price, oldPrice: oldPrice > price ? oldPrice : 0, stock: Number(form.stock) || 0, rating: Number(form.rating) || 4.5 };
-    if (modal.mode === "add") addProduct(payload);
-    else updateProduct(modal.id, payload);
-    closeModal();
+    try { if (modal.mode === "add") await addProduct(payload); else await updateProduct(modal.id, payload); closeModal(); }
+    catch (error) { notify(error.message || "Không thể lưu sản phẩm", "error"); }
   };
+  const handleDelete = async () => { try { await deleteProduct(confirmDelete.id); setConfirmDelete(null); } catch (error) { notify(error.message || "Không thể xóa sản phẩm", "error"); } };
 
   return (
     <AdminLayout title="Sản phẩm">
@@ -104,7 +104,7 @@ export default function AdminProducts() {
             <p className="confirm-text">Bạn có chắc muốn xóa <b>{confirmDelete.name}</b>? Hành động này không thể hoàn tác.</p>
             <div className="modal-actions">
               <button className="secondary-btn" onClick={() => setConfirmDelete(null)}>Hủy</button>
-              <button className="primary-btn" style={{ background: "#dc2626" }} onClick={() => { deleteProduct(confirmDelete.id); setConfirmDelete(null); }}>Xóa sản phẩm</button>
+              <button className="primary-btn" style={{ background: "#dc2626" }} onClick={handleDelete}>Xóa sản phẩm</button>
             </div>
           </div>
         </div>

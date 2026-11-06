@@ -1,120 +1,68 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { seedProducts } from "../data/products";
+import { api, getToken, setToken } from "../lib/api";
 
 const AppContext = createContext(null);
-
-const read = (key, fallback) => {
-  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
-  catch { return fallback; }
-};
-
-const normalizeProducts = (stored) => {
-  if (!Array.isArray(stored) || stored.length === 0) return seedProducts;
-  return stored.map(product => {
-    const seed = seedProducts.find(item => item.id === product.id);
-    return { ...seed, ...product, image: seed?.image || product.image };
-  });
-};
+const read = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
 
 export function AppProvider({ children }) {
-  const [products, setProducts] = useState(() => normalizeProducts(read("novatech_products", seedProducts)));
+  const [products, setProducts] = useState(seedProducts);
   const [cart, setCart] = useState(() => read("novatech_cart", []));
-  const [orders, setOrders] = useState(() => read("novatech_orders", [
-    { id: "NT-1001", customer: "Nguyễn Minh Anh", total: 34990000, status: "Đang giao", date: "24/09/2026", items: 1 },
-    { id: "NT-1002", customer: "Trần Quốc Huy", total: 8990000, status: "Hoàn tất", date: "23/09/2026", items: 1 },
-    { id: "NT-1003", customer: "Lê Hoàng Nam", total: 12990000, status: "Chờ xác nhận", date: "22/09/2026", items: 1 }
-  ]));
-  const [user, setUser] = useState(() => read("novatech_user", null));
+  const [orders, setOrders] = useState([]);
+  const [user, setUserState] = useState(() => read("novatech_user", null));
   const [toast, setToast] = useState(null);
+  const [backendReady, setBackendReady] = useState(false);
 
-  useEffect(() => localStorage.setItem("novatech_products", JSON.stringify(products)), [products]);
-  useEffect(() => localStorage.setItem("novatech_cart", JSON.stringify(cart)), [cart]);
-  useEffect(() => localStorage.setItem("novatech_orders", JSON.stringify(orders)), [orders]);
-  useEffect(() => localStorage.setItem("novatech_user", JSON.stringify(user)), [user]);
+  const notify = (message, type = "success") => { setToast({ message, type }); setTimeout(() => setToast(null), 2400); };
+  const setUser = next => { setUserState(next); if (next) localStorage.setItem("novatech_user", JSON.stringify(next)); else { setToken(null); localStorage.removeItem("novatech_user"); setOrders([]); setCart([]); } };
 
-  const notify = (message, type = "success") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 2400);
-  };
+  const refreshProducts = async () => { const rows = await api('/products'); setProducts(rows); return rows; };
+  const refreshOrders = async () => { if (!getToken()) { setOrders([]); return []; } const rows = await api('/orders'); setOrders(rows); return rows; };
 
-  const addToCart = (product) => {
-    if (!user) {
-      notify("Bạn cần đăng nhập để thêm vào giỏ hàng", "error");
-      return;
+  useEffect(() => {
+    let active = true;
+    api('/products').then(rows => { if (active) { setProducts(rows); setBackendReady(true); } }).catch(err => { console.error('Backend products:', err); if (active) notify('Chưa kết nối được Backend. Đang hiển thị dữ liệu mẫu.', 'error'); });
+    if (getToken()) {
+      api('/auth/me').then(({ user: current }) => { if (active) { setUserState(current); localStorage.setItem('novatech_user', JSON.stringify(current)); return refreshOrders(); } }).catch(() => { setToken(null); localStorage.removeItem('novatech_user'); if (active) setUserState(null); });
+    } else {
+      localStorage.removeItem('novatech_user');
+      setUserState(null);
     }
-    setCart(prev => {
-      const found = prev.find(x => x.id === product.id);
-      if (found) return prev.map(x => x.id === product.id ? { ...x, qty: Math.min(x.qty + 1, product.stock) } : x);
-      return [...prev, { ...product, qty: 1 }];
-    });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => localStorage.setItem("novatech_cart", JSON.stringify(cart)), [cart]);
+
+  const login = async (email, password) => {
+    const result = await api('/auth/login', { method:'POST', body:{ email, password } });
+    setToken(result.token); setUser(result.user); await refreshOrders(); return result.user;
+  };
+  const register = async (name, email, password) => {
+    const result = await api('/auth/register', { method:'POST', body:{ name, email, password } });
+    setToken(result.token); setUser(result.user); setOrders([]); return result.user;
+  };
+  const logout = () => { setToken(null); setUser(null); setOrders([]); setCart([]); };
+
+  const addToCart = product => {
+    if (!user) { notify("Bạn cần đăng nhập để thêm vào giỏ hàng", "error"); return; }
+    setCart(prev => { const found=prev.find(x=>x.id===product.id); if(found) return prev.map(x=>x.id===product.id?{...x,qty:Math.min(x.qty+1,product.stock)}:x); return [...prev,{...product,qty:1}]; });
     notify("Đã thêm sản phẩm vào giỏ hàng");
   };
-
-  const updateQty = (id, qty) => {
-    setCart(prev => prev.map(x => x.id === id ? { ...x, qty: Math.max(1, qty) } : x));
-  };
-
-  const removeFromCart = (id) => {
-    setCart(prev => prev.filter(x => x.id !== id));
-    notify("Đã xóa sản phẩm khỏi giỏ");
-  };
-
+  const updateQty = (id,qty) => setCart(prev=>prev.map(x=>x.id===id?{...x,qty:Math.max(1,Math.min(Number(qty)||1,x.stock||999))}:x));
+  const removeFromCart = id => { setCart(prev=>prev.filter(x=>x.id!==id)); notify("Đã xóa sản phẩm khỏi giỏ"); };
   const clearCart = () => setCart([]);
-
-  const placeOrder = (form = {}) => {
-    const total = cart.reduce((s, x) => s + x.price * x.qty, 0);
-    const order = {
-      id: `NT-${1000 + orders.length + 1}`,
-      customer: form.name || user?.name || "Khách hàng",
-      email: user?.email || form.email || "",
-      phone: form.phone || "",
-      address: form.address || "",
-      payment: form.payment || "cod",
-      total,
-      status: "Chờ xác nhận",
-      date: new Date().toLocaleDateString("vi-VN"),
-      items: cart.reduce((s, x) => s + x.qty, 0),
-      itemsList: cart.map(x => ({ id: x.id, name: x.name, image: x.image, price: x.price, qty: x.qty }))
-    };
-    setOrders(prev => [order, ...prev]);
-    clearCart();
-    notify("Đặt hàng thành công!");
-    return order;
+  const placeOrder = async form => {
+    const order = await api('/orders',{method:'POST',body:{name:form.name,phone:form.phone,address:form.address,payment:form.payment,items:cart.map(x=>({productId:x.id,qty:x.qty}))}});
+    setOrders(prev=>[order,...prev]); clearCart(); await refreshProducts(); notify('Đặt hàng thành công!'); return order;
   };
+  const addProduct = async product => { const created=await api('/products',{method:'POST',body:product}); setProducts(prev=>[created,...prev]); notify('Đã thêm sản phẩm mới'); };
+  const updateProduct = async (id,patch) => { const updated=await api(`/products/${id}`,{method:'PATCH',body:patch}); setProducts(prev=>prev.map(p=>p.id===id?updated:p)); notify('Đã cập nhật sản phẩm'); };
+  const deleteProduct = async id => { await api(`/products/${id}`,{method:'DELETE'}); setProducts(prev=>prev.filter(p=>p.id!==id)); notify('Đã xóa sản phẩm'); };
+  const updateOrderStatus = async (id,status) => { const updated=await api(`/orders/${encodeURIComponent(id)}/status`,{method:'PATCH',body:{status}}); setOrders(prev=>prev.map(o=>o.id===id?updated:o)); notify('Đã cập nhật trạng thái đơn hàng'); };
+  const deleteOrder = id => setOrders(prev=>prev.filter(o=>o.id!==id));
 
-  const cartCount = cart.reduce((s, x) => s + x.qty, 0);
-  const cartTotal = cart.reduce((s, x) => s + x.price * x.qty, 0);
-
-  const addProduct = (product) => {
-    setProducts(prev => {
-      const nextId = prev.reduce((m, p) => Math.max(m, p.id), 0) + 1;
-      return [{ ...product, id: nextId }, ...prev];
-    });
-    notify("Đã thêm sản phẩm mới");
-  };
-
-  const updateProduct = (id, patch) => {
-    setProducts(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
-    notify("Đã cập nhật sản phẩm");
-  };
-
-  const deleteProduct = (id) => {
-    setProducts(prev => prev.filter(p => p.id !== id));
-    notify("Đã xóa sản phẩm");
-  };
-
-  const updateOrderStatus = (id, status) => {
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
-    notify("Đã cập nhật trạng thái đơn hàng");
-  };
-
-  const deleteOrder = (id) => {
-    setOrders(prev => prev.filter(o => o.id !== id));
-    notify("Đã xóa đơn hàng");
-  };
-
-  const value = useMemo(() => ({ products, setProducts, cart, orders, setOrders, user, setUser, toast, notify, addToCart, updateQty, removeFromCart, clearCart, placeOrder, cartCount, cartTotal, addProduct, updateProduct, deleteProduct, updateOrderStatus, deleteOrder }), [products, cart, orders, user, toast, cartCount, cartTotal]);
+  const cartCount=cart.reduce((s,x)=>s+x.qty,0), cartTotal=cart.reduce((s,x)=>s+x.price*x.qty,0);
+  const value=useMemo(()=>({products,setProducts,cart,orders,setOrders,user,setUser,toast,notify,addToCart,updateQty,removeFromCart,clearCart,placeOrder,cartCount,cartTotal,addProduct,updateProduct,deleteProduct,updateOrderStatus,deleteOrder,login,register,logout,refreshProducts,refreshOrders,backendReady}),[products,cart,orders,user,toast,cartCount,cartTotal,backendReady]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
-
-export const useApp = () => useContext(AppContext);
+export const useApp=()=>useContext(AppContext);
