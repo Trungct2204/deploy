@@ -8,7 +8,7 @@ const STATUSES = ["Chờ xác nhận", "Đang giao", "Hoàn tất", "Đã hủy"
 const statusClass = s => s === "Hoàn tất" ? "done" : s === "Đang giao" ? "shipping" : s === "Đã hủy" ? "danger" : "pending";
 
 export default function AdminOrders() {
-  const { orders, updateOrderStatus } = useApp();
+  const { orders, updateOrderStatus, notify } = useApp();
   const [query, setQuery] = useState("");
   const [detail, setDetail] = useState(null);
 
@@ -40,7 +40,7 @@ export default function AdminOrders() {
                     <select
                       className={`status-select ${statusClass(o.status)}`}
                       value={o.status}
-                      onChange={e => updateOrderStatus(o.id, e.target.value)}
+                      onChange={async e => { try { await updateOrderStatus(o.id, e.target.value); } catch (error) { notify(error.message || "Không thể cập nhật đơn hàng", "error"); } }}
                     >
                       {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>

@@ -1,30 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search, Mail } from "lucide-react";
-import { useApp } from "../../context/AppContext";
+import { api } from "../../lib/api";
 import AdminLayout from "../../layouts/AdminLayout";
 
 const money = n => Number(n || 0).toLocaleString("vi-VN") + "₫";
 
 export default function AdminCustomers() {
-  const { orders } = useApp();
   const [query, setQuery] = useState("");
-
-  const customers = Object.values(
-    orders.reduce((acc, o) => {
-      const key = o.email || o.customer;
-      if (!acc[key]) acc[key] = { name: o.customer, email: o.email || "—", orders: 0, total: 0, lastDate: o.date };
-      acc[key].orders += 1;
-      acc[key].total += o.total;
-      return acc;
-    }, {})
-  );
+  const [customers, setCustomers] = useState([]);
+  useEffect(() => { api('/admin/customers').then(setCustomers).catch(error => console.error('Load customers:', error)); }, []);
 
   const filtered = customers.filter(c => (c.name + c.email).toLowerCase().includes(query.toLowerCase()));
 
   return (
     <AdminLayout title="Khách hàng">
       <div className="admin-page-head">
-        <div><h1>Khách hàng</h1><p>{customers.length} khách hàng đã từng đặt hàng.</p></div>
+        <div><h1>Khách hàng</h1><p>{customers.length} tài khoản khách hàng.</p></div>
       </div>
 
       <div className="admin-panel">
